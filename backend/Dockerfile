@@ -16,9 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the backend code
 COPY . .
 
-# Ensure the raw data is available for ETL
-COPY data/raw/spotify_tracks.csv ./data/raw/spotify_tracks.csv
-
+# Expose port
 EXPOSE 8000
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
