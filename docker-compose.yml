@@ -1,0 +1,116 @@
+version: '3.8'
+
+networks:
+  spotify-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  airflow_logs:
+
+services:
+  postgres:
+    image: postgres:15
+    env_file: .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - spotify-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./backend/app/ml:/app/app/ml
+    networks:
+      - spotify-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      retries: 3
+      timeout: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: "http://localhost:8000"
+    ports:
+      - "3000:80"
+    networks:
+      - spotify-net
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  airflow-init:
+    build:
+      context: ./backend/airflow
+    command: version
+    env_file: .env
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      _AIRFLOW_DB_UPGRADE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - spotify-net
+    restart: on-failure
+
+  airflow-scheduler:
+    build:
+      context: ./backend/airflow
+    command: scheduler
+    env_file: .env
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      PYTHONPATH: /opt/airflow/backend
+    volumes:
+      - ./backend/airflow/dags:/opt/airflow/dags
+      - ./backend:/opt/airflow/backend
+      - airflow_logs:/opt/airflow/logs
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - spotify-net
+
+  airflow-webserver:
+    build:
+      context: ./backend/airflow
+    command: webserver
+    ports:
+      - "8080:8080"
+    env_file: .env
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      PYTHONPATH: /opt/airflow/backend
+    volumes:
+      - ./backend/airflow/dags:/opt/airflow/dags
+      - ./backend:/opt/airflow/backend
+      - airflow_logs:/opt/airflow/logs
+    depends_on:
+      - airflow-scheduler
+    networks:
+      - spotify-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      retries: 3
+      timeout: 10s

@@ -1,0 +1,1266 @@
+================================================================================
+         SPOTIFY ANALYTICS PLATFORM — COMPLETE PROJECT OVERVIEW
+================================================================================
+
+  A Full-Stack Data Engineering + Machine Learning + Analytics Portfolio Project
+  Built with FastAPI · React · Apache Airflow · PostgreSQL · Docker · Scikit-Learn
+
+================================================================================
+  TABLE OF CONTENTS
+================================================================================
+
+  1.  What This Project Does (Simple English)
+  2.  The Complete Data & Request Flow
+  3.  Full Project Structure (Every Folder & File Explained)
+  4.  Tech Stack — What, Why, and How Each Tool Is Used
+  5.  How Every Layer Connects to Each Other
+  6.  The 5 Pages — What Each One Does
+  7.  The Machine Learning System
+  8.  The ETL Pipeline (Airflow)
+  9.  The Docker Setup
+  10. Environment Variables & Configuration
+  11. How to Run the Project
+
+================================================================================
+  1. WHAT THIS PROJECT DOES (SIMPLE ENGLISH)
+================================================================================
+
+  This is a music analytics platform built on top of a dataset of 100,000+
+  Spotify tracks. The idea is simple:
+
+    - We have a CSV file with data on 100k+ songs: their audio features like
+      danceability, energy, tempo, valence, and their popularity scores.
+
+    - We take that raw CSV data, clean it, and push it into a cloud PostgreSQL
+      database (Neon) using an automated data pipeline.
+
+    - We then build a Python backend (FastAPI) that reads from that database
+      and exposes REST API endpoints.
+
+    - We train a Machine Learning model on that data to predict how popular
+      a song will be based on its audio features.
+
+    - We build a React frontend that talks to the backend API and displays
+      everything in a beautiful, interactive dashboard.
+
+    - We run everything inside Docker containers so it works the same on
+      any computer.
+
+  End result: A live web application where you can:
+    * See real-time stats (total tracks, genres, avg popularity)
+    * Explore charts of genre distributions and audio feature trends
+    * Search and filter through all 100k+ tracks
+    * Register an account and log in securely with JWT authentication
+    * Predict how popular your song idea will be using AI (login required)
+    * Get song recommendations based on mathematical audio similarity (login required)
+
+
+================================================================================
+  2. THE COMPLETE DATA & REQUEST FLOW
+================================================================================
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │                        DATA FLOW (One Time Setup)                       │
+  │                                                                         │
+  │  spotify_tracks.csv  ──►  ETL Pipeline  ──►  Neon PostgreSQL (Cloud)   │
+  │  (Raw 100k+ rows)         (Clean + Load)      (Structured Tables)       │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │                   ML TRAINING FLOW (One Time Setup)                     │
+  │                                                                         │
+  │  PostgreSQL  ──►  train.py  ──►  model.pkl + scaler.pkl                │
+  │  (Track data)     (Scikit-Learn  (Saved trained model files)            │
+  │                    RandomForest)                                        │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │                    LIVE REQUEST FLOW (Every User Visit)                 │
+  │                                                                         │
+  │  Browser (React)                                                        │
+  │      │                                                                  │
+  │      │  HTTP GET /api/dashboard                                         │
+  │      ▼                                                                  │
+  │  Nginx (port 3000)  ──►  FastAPI Backend (port 8000)                   │
+  │                              │                                          │
+  │                              │  SQLAlchemy Query                        │
+  │                              ▼                                          │
+  │                         Neon PostgreSQL (Cloud)                         │
+  │                              │                                          │
+  │                              │  Returns JSON data                       │
+  │                              ▼                                          │
+  │                         FastAPI Response  ──►  React updates UI         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │                   SCHEDULED PIPELINE FLOW (Daily/Manual)                │
+  │                                                                         │
+  │  Airflow Scheduler  ──►  Triggers DAG  ──►  Extract ──► Transform       │
+  │  (Runs on schedule)       (4 Tasks)          (CSV)      (Clean data)    │
+  │                                                              │           │
+  │                                               Load ◄── Validate          │
+  │                                          (Push to DB)  (Check quality)  │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+  3. FULL PROJECT STRUCTURE (EVERY FOLDER & FILE EXPLAINED)
+================================================================================
+
+spotify-analytics-platform/           ← PROJECT ROOT
+│
+├── .env                               ← Root environment variables file.
+│                                        Stores secrets like DATABASE_URL,
+│                                        SECRET_KEY, Postgres credentials.
+│                                        NEVER committed to Git.
+│
+├── .gitignore                         ← Tells Git which files to ignore
+│                                        (venv, node_modules, .env, __pycache__)
+│
+├── docker-compose.yml                 ← THE MASTER ORCHESTRATION FILE.
+│                                        Defines all 6 containers and how
+│                                        they connect. One command starts
+│                                        the entire platform.
+│
+├── PROJECT_OVERVIEW.txt               ← This file. Full documentation.
+│
+│
+├── backend/                           ← ALL PYTHON/SERVER CODE LIVES HERE
+│   │
+│   ├── Dockerfile                     ← Instructions to build the backend
+│   │                                    Docker image. Uses Python 3.11-slim,
+│   │                                    installs requirements, copies app code.
+│   │
+│   ├── .dockerignore                  ← Files to exclude from Docker build
+│   │                                    (venv/, __pycache__, .env)
+│   │
+│   ├── .env                           ← Backend-specific secrets (DATABASE_URL,
+│   │                                    SECRET_KEY). Used when running locally
+│   │                                    outside of Docker.
+│   │
+│   ├── requirements.txt               ← All Python package dependencies.
+│   │                                    Includes: fastapi, uvicorn, sqlalchemy,
+│   │                                    psycopg2, scikit-learn, pandas, etc.
+│   │
+│   ├── check_counts.py                ← Utility script to verify how many
+│   │                                    rows were loaded into the database.
+│   │
+│   ├── test_db.py                     ← Script to test database connectivity
+│   │                                    and print basic stats.
+│   │
+│   ├── test_endpoints.py              ← Script to test all API endpoints
+│   │                                    and verify they return correct data.
+│   │
+│   │
+│   ├── app/                           ← THE FASTAPI APPLICATION PACKAGE
+│   │   │
+│   │   ├── main.py                    ← APPLICATION ENTRY POINT.
+│   │   │                                Creates the FastAPI app instance,
+│   │   │                                configures CORS (Cross-Origin Resource
+│   │   │                                Sharing) so the React frontend on port
+│   │   │                                3000 can call the API on port 8000,
+│   │   │                                registers all route routers, tests
+│   │   │                                DB connection on startup, and loads
+│   │   │                                the ML models into memory.
+│   │   │
+│   │   ├── api/                       ← API ROUTE HANDLERS (one file per feature)
+│   │   │   │
+│   │   │   ├── __init__.py            ← Makes this directory a Python package
+│   │   │   │
+│   │   │   ├── dashboard.py           ← GET /api/dashboard
+│   │   │   │                            Returns: total_tracks, total_artists,
+│   │   │   │                            total_genres, avg_popularity.
+│   │   │   │                            Powers the Landing page KPI cards.
+│   │   │   │
+│   │   │   ├── genres.py              ← GET /api/genres/top?limit=N
+│   │   │   │                            Returns top N genres by track count.
+│   │   │   │                            Powers Explorer filter dropdown +
+│   │   │   │                            Dashboard bar chart.
+│   │   │   │
+│   │   │   ├── tracks.py              ← GET /api/tracks/search
+│   │   │   │                            Accepts: q (search query), genre,
+│   │   │   │                            popularity_bucket, sort_by, sort_dir,
+│   │   │   │                            page, page_size.
+│   │   │   │                            Returns paginated list of tracks.
+│   │   │   │                            Powers the Explorer page.
+│   │   │   │
+│   │   │   ├── analytics.py           ← GET /api/analytics/popularity-distribution
+│   │   │   │                            GET /api/analytics/feature-trends
+│   │   │   │                            GET /api/analytics/top-tracks
+│   │   │   │                            Powers the Dashboard charts.
+│   │   │   │
+│   │   │   ├── predictions.py         ← POST /api/predict
+│   │   │   │                            🔒 PROTECTED — requires valid JWT token.
+│   │   │   │                            Accepts audio feature values (JSON),
+│   │   │   │                            runs them through the ML model,
+│   │   │   │                            returns predicted_popularity + category.
+│   │   │   │                            Powers the Hit Predictor page.
+│   │   │   │
+│   │   │   ├── recommendations.py     ← GET /api/recommendations/{track_id}
+│   │   │   │                            🔒 PROTECTED — requires valid JWT token.
+│   │   │   │                            Runs cosine similarity algorithm
+│   │   │   │                            against all tracks in DB and returns
+│   │   │   │                            top 10 most similar tracks.
+│   │   │   │                            Powers Recommendations page.
+│   │   │   │
+│   │   │   └── auth.py                ← POST /api/auth/login + /register
+│   │   │                                login: expects form-encoded username +
+│   │   │                                password (OAuth2 standard). Returns
+│   │   │                                JWT access token on success.
+│   │   │                                register: accepts JSON {email, password},
+│   │   │                                hashes password with bcrypt, stores user.
+│   │   │                                get_current_user(): FastAPI dependency
+│   │   │                                that validates JWT on protected routes.
+│   │   │
+│   │   │
+│   │   ├── database/                  ← DATABASE CONNECTION MANAGEMENT
+│   │   │   │
+│   │   │   ├── base.py                ← Defines SQLAlchemy declarative Base.
+│   │   │   │                            All models inherit from this.
+│   │   │   │
+│   │   │   └── session.py             ← Creates the database engine using
+│   │   │                                DATABASE_URL from environment.
+│   │   │                                Provides get_db() dependency function
+│   │   │                                that opens/closes a DB session for
+│   │   │                                every API request automatically.
+│   │   │
+│   │   │
+│   │   ├── models/                    ← DATABASE TABLE DEFINITIONS (ORM)
+│   │   │   │                            These Python classes map directly
+│   │   │   │                            to tables in PostgreSQL.
+│   │   │   │
+│   │   │   ├── __init__.py            ← Imports all models so Alembic and
+│   │   │   │                            SQLAlchemy can see them.
+│   │   │   │
+│   │   │   ├── track.py               ← "tracks" table.
+│   │   │   │                            Fields: track_id, track_name,
+│   │   │   │                            album_name, popularity, duration_ms,
+│   │   │   │                            duration_minutes, danceability,
+│   │   │   │                            energy, loudness, speechiness,
+│   │   │   │                            acousticness, instrumentalness,
+│   │   │   │                            liveness, valence, tempo,
+│   │   │   │                            popularity_bucket, energy_level,
+│   │   │   │                            danceability_level, tempo_category.
+│   │   │   │                            Has foreign keys to artists + genres.
+│   │   │   │
+│   │   │   ├── artist.py              ← "artists" table.
+│   │   │   │                            Fields: id, artist_name.
+│   │   │   │                            One artist → Many tracks.
+│   │   │   │
+│   │   │   ├── genre.py               ← "genres" table.
+│   │   │   │                            Fields: id, genre_name.
+│   │   │   │                            One genre → Many tracks.
+│   │   │   │
+│   │   │   ├── user.py                ← "users" table.
+│   │   │   │                            Fields: id, email, hashed_password.
+│   │   │   │                            For optional authentication.
+│   │   │   │
+│   │   │   ├── etl_log.py             ← "etl_logs" table.
+│   │   │   │                            Stores a record every time the Airflow
+│   │   │   │                            ETL pipeline runs: timestamp, rows
+│   │   │   │                            processed, success/failure status.
+│   │   │   │
+│   │   │   └── model_prediction.py    ← "model_predictions" table.
+│   │   │                                Stores every prediction made by the
+│   │   │                                ML model for audit/analysis purposes.
+│   │   │
+│   │   │
+│   │   ├── services/                  ← BUSINESS LOGIC LAYER
+│   │   │   │                            API routes call services,
+│   │   │   │                            services talk to the database.
+│   │   │   │                            This keeps routes thin and clean.
+│   │   │   │
+│   │   │   ├── analytics_service.py   ← All the SQL queries for analytics:
+│   │   │   │                            - get_dashboard_stats(): COUNT of
+│   │   │   │                              tracks/artists/genres, AVG popularity
+│   │   │   │                            - get_top_genres(): GROUP BY genre,
+│   │   │   │                              ORDER BY track count
+│   │   │   │                            - get_popularity_distribution(): GROUP
+│   │   │   │                              BY popularity_bucket
+│   │   │   │                            - get_feature_trends(): AVG of each
+│   │   │   │                              audio feature per top genre
+│   │   │   │                            - get_top_tracks(): ORDER BY popularity
+│   │   │   │
+│   │   │   ├── track_service.py       ← Search and recommendation logic:
+│   │   │   │                            - search_tracks(): Dynamic SQL query
+│   │   │   │                              builder with optional filters,
+│   │   │   │                              pagination, and sorting.
+│   │   │   │                            - get_recommendations(): Loads 10k+
+│   │   │   │                              tracks, converts to numpy vectors,
+│   │   │   │                              computes cosine similarity, returns
+│   │   │   │                              top 10 closest matches.
+│   │   │   │
+│   │   │   ├── prediction_service.py  ← ML inference logic:
+│   │   │   │                            Loads model.pkl and scaler.pkl,
+│   │   │   │                            scales input features, runs model
+│   │   │   │                            prediction, maps score to a
+│   │   │   │                            category (Low/Medium/Popular/Hit).
+│   │   │   │
+│   │   │   └── auth_service.py        ← User registration + login logic:
+│   │   │                                Password hashing with bcrypt,
+│   │   │                                JWT token creation and validation.
+│   │   │
+│   │   │
+│   │   ├── schemas/                   ← PYDANTIC DATA VALIDATION SCHEMAS
+│   │   │                                Defines the exact shape of request
+│   │   │                                and response data. FastAPI uses these
+│   │   │                                to auto-validate incoming JSON and
+│   │   │                                auto-generate API documentation.
+│   │   │
+│   │   └── ml/                        ← MACHINE LEARNING MODULE
+│   │       │
+│   │       ├── train.py               ← Training script (run once manually).
+│   │       │                            Connects to DB, loads track data,
+│   │       │                            selects features: [danceability, energy,
+│   │       │                            valence, speechiness, acousticness,
+│   │       │                            instrumentalness, liveness, tempo].
+│   │       │                            Trains a RandomForestRegressor,
+│   │       │                            saves model.pkl and scaler.pkl.
+│   │       │
+│   │       ├── predict.py             ← Inference helper used by prediction
+│   │       │                            service. Loads the saved .pkl files
+│   │       │                            and runs predictions on new input.
+│   │       │
+│   │       ├── model.pkl              ← SAVED TRAINED MODEL FILE.
+│   │       │                            Binary file produced by train.py.
+│   │       │                            Contains the RandomForest weights.
+│   │       │
+│   │       └── scaler.pkl             ← SAVED FEATURE SCALER FILE.
+│   │                                    StandardScaler fitted on training data.
+│   │                                    Must be applied to new inputs before
+│   │                                    running prediction, to normalize values.
+│   │
+│   │
+│   ├── etl/                           ← ETL PIPELINE SCRIPTS
+│   │   │                                These scripts do the one-time data
+│   │   │                                loading from CSV to database.
+│   │   │                                Also called by Airflow DAG.
+│   │   │
+│   │   ├── extract.py                 ← EXTRACT STEP.
+│   │   │                                Reads the raw CSV file using pandas.
+│   │   │                                Returns a raw DataFrame.
+│   │   │
+│   │   ├── transform.py               ← TRANSFORM STEP.
+│   │   │                                Cleans the data:
+│   │   │                                - Removes duplicate tracks
+│   │   │                                - Handles missing values
+│   │   │                                - Creates duration_minutes from ms
+│   │   │                                - Assigns popularity_bucket labels
+│   │   │                                  (Low/Medium/Popular/Hit)
+│   │   │                                - Creates energy_level, danceability_level
+│   │   │                                  categorical columns
+│   │   │                                Returns a clean DataFrame.
+│   │   │
+│   │   ├── load.py                    ← LOAD STEP.
+│   │   │                                Takes the clean DataFrame and inserts
+│   │   │                                it into the PostgreSQL database via
+│   │   │                                SQLAlchemy. Handles upserts to avoid
+│   │   │                                duplicates on re-runs. Creates separate
+│   │   │                                rows in artists and genres tables,
+│   │   │                                linking them to tracks via foreign keys.
+│   │   │
+│   │   └── pipeline.py                ← PIPELINE ORCHESTRATOR.
+│   │                                    Calls extract → transform → load
+│   │                                    in sequence. Can be run standalone
+│   │                                    or imported by the Airflow DAG.
+│   │
+│   │
+│   ├── airflow/                       ← APACHE AIRFLOW CONFIGURATION
+│   │   │
+│   │   ├── requirements.txt           ← Python packages Airflow needs inside
+│   │   │                                its container (pandas, sqlalchemy,
+│   │   │                                psycopg2-binary, scikit-learn, etc.)
+│   │   │
+│   │   ├── docker-compose-airflow.yml ← Standalone Airflow compose file
+│   │   │                                (used for development only)
+│   │   │
+│   │   └── dags/                      ← AIRFLOW DAG DEFINITIONS
+│   │       └── spotify_etl_dag.py     ← THE MAIN DAG FILE.
+│   │                                    Defines a DAG named "spotify_etl"
+│   │                                    that runs on a schedule (daily).
+│   │                                    Has 4 Tasks in sequence:
+│   │                                    1. extract_task    → calls extract.py
+│   │                                    2. transform_task  → calls transform.py
+│   │                                    3. load_task       → calls load.py
+│   │                                    4. log_task        → writes ETL run
+│   │                                       record to etl_logs table in DB.
+│   │
+│   │
+│   ├── alembic/                       ← DATABASE MIGRATION TOOL
+│   │                                    Alembic tracks changes to DB schema
+│   │                                    over time (like Git for your database).
+│   │                                    When you add a new column or table,
+│   │                                    you create a migration file here.
+│   │
+│   ├── alembic.ini                    ← Alembic configuration (DB URL, etc.)
+│   │
+│   └── data/
+│       └── raw/
+│           └── spotify_tracks.csv     ← THE SOURCE DATA FILE.
+│                                        ~100,000 rows of Spotify track data.
+│                                        Columns: track_id, artists, album,
+│                                        track_name, popularity, duration_ms,
+│                                        explicit, danceability, energy, key,
+│                                        loudness, mode, speechiness,
+│                                        acousticness, instrumentalness,
+│                                        liveness, valence, tempo, time_sig,
+│                                        track_genre.
+│
+│
+├── frontend/                          ← ALL REACT UI CODE LIVES HERE
+│   │
+│   ├── Dockerfile                     ← 2-stage Docker build:
+│   │                                    Stage 1 (build): Node 20 + npm ci +
+│   │                                    npm run build → creates dist/ folder
+│   │                                    Stage 2 (serve): Nginx copies dist/
+│   │                                    and serves as static files on port 80.
+│   │
+│   ├── .dockerignore                  ← Excludes node_modules from Docker
+│   │                                    context (they are reinstalled inside).
+│   │
+│   ├── .env                           ← Local dev environment variables.
+│   │                                    VITE_API_URL=http://localhost:8000
+│   │
+│   ├── .env.production                ← Production environment variables.
+│   │                                    VITE_API_URL=http://localhost:8000
+│   │                                    (or your deployed backend URL)
+│   │
+│   ├── index.html                     ← The single HTML page. Vite injects the
+│   │                                    compiled JS bundle here. Everything
+│   │                                    React renders goes inside <div id="root">
+│   │
+│   ├── nginx.conf                     ← Nginx configuration for SPA routing.
+│   │                                    Key setting: "try_files $uri /index.html"
+│   │                                    This means /dashboard, /explore etc.
+│   │                                    all serve index.html and React Router
+│   │                                    handles the routing client-side.
+│   │
+│   ├── vite.config.js                 ← Vite bundler configuration.
+│   │                                    Enables React plugin. Vite is used
+│   │                                    instead of Create React App because
+│   │                                    it is 10-20x faster.
+│   │
+│   ├── package.json                   ← Node project manifest.
+│   │                                    Lists all npm dependencies:
+│   │                                    react, react-dom, react-router-dom,
+│   │                                    axios, recharts, framer-motion,
+│   │                                    lucide-react, tailwindcss.
+│   │
+│   └── src/                           ← ALL REACT SOURCE CODE
+│       │
+│       ├── main.jsx                   ← APPLICATION BOOTSTRAP.
+│       │                                Renders <App /> into the DOM's
+│       │                                #root element. Wraps it in
+│       │                                React.StrictMode for development.
+│       │
+│       ├── App.jsx                    ← ROOT COMPONENT + ROUTING.
+│       │                                Sets up BrowserRouter (client-side
+│       │                                routing), wraps everything in
+│       │                                AuthProvider (global auth state),
+│       │                                defines all 5 routes:
+│       │                                  /          → Landing         (public)
+│       │                                  /dashboard → Dashboard       (public)
+│       │                                  /explore   → Explorer        (public)
+│       │                                  /predict   → Predictor       (🔒 auth)
+│       │                                  /recommend → Recommendations (🔒 auth)
+│       │                                  *          → redirect to /
+│       │
+│       ├── index.css                  ← Global CSS (minimal, mostly Tailwind).
+│       │
+│       │
+│       ├── pages/                     ← TOP-LEVEL PAGE COMPONENTS
+│       │   │                            One file per page/route.
+│       │   │
+│       │   ├── Landing.jsx            ← HOME PAGE (route: /)
+│       │   │                            On load, calls getDashboard() API.
+│       │   │                            Shows 4 animated KPI cards:
+│       │   │                              - Total Tracks
+│       │   │                              - Total Artists
+│       │   │                              - Total Genres
+│       │   │                              - Avg Popularity
+│       │   │                            Has hero section, animated gradient
+│       │   │                            background, and navigation links.
+│       │   │
+│       │   ├── Dashboard.jsx          ← ANALYTICS DASHBOARD (route: /dashboard)
+│       │   │                            Mounts 4 chart components which each
+│       │   │                            independently fetch their own data:
+│       │   │                              - TopGenresBar (bar chart)
+│       │   │                              - PopularityPie (pie chart)
+│       │   │                              - FeatureTrends (line chart)
+│       │   │                              - RadarComparison (radar chart)
+│       │   │
+│       │   ├── Explorer.jsx           ← TRACK EXPLORER (route: /explore)
+│       │   │                            Full search/filter interface for all
+│       │   │                            100k+ tracks. Features:
+│       │   │                              - Live search with 400ms debounce
+│       │   │                              - Genre dropdown filter
+│       │   │                              - Popularity bucket filter
+│       │   │                              - Sort by: popularity/tempo/danceability
+│       │   │                              - Pagination (20 per page + jump to page)
+│       │   │                              - Skeleton loading states
+│       │   │
+│       │   ├── Predictor.jsx          ← HIT PREDICTOR (route: /predict)
+│       │   │                            Interactive ML prediction form.
+│       │   │                            User drags 7 sliders for audio features,
+│       │   │                            inputs tempo, clicks "Predict".
+│       │   │                            Calls POST /api/predict with JSON body.
+│       │   │                            Displays result as an animated circular
+│       │   │                            score gauge (0-100) + category badge.
+│       │   │
+│       │   └── Recommendations.jsx    ← AI RECOMMENDATIONS (route: /recommend)
+│       │                                User types a track name in search box.
+│       │                                Dropdown appears with matching tracks.
+│       │                                User selects a seed track.
+│       │                                Page shows that track's audio features
+│       │                                as progress bars.
+│       │                                User clicks "Find Similar Tracks".
+│       │                                Calls GET /api/recommendations/{id}.
+│       │                                Returns 10 similar tracks as cards.
+│       │
+│       │
+│       ├── components/                ← REUSABLE UI COMPONENTS
+│       │   │
+│       │   ├── layout/
+│       │   │   ├── Navbar.jsx         ← Top navigation bar shown on every page.
+│       │   │   │                        Links to all 5 pages. Highlights
+│       │   │   │                        the active route. Has the Spotify logo.
+│       │   │   │
+│       │   │   └── PageWrapper.jsx    ← Wrapper component that adds consistent
+│       │   │                            padding and max-width to every page.
+│       │   │
+│       │   ├── ui/
+│       │   │   ├── KPICard.jsx        ← Animated stat card used on Landing page.
+│       │   │   │                        Uses Framer Motion to animate numbers
+│       │   │   │                        counting up from 0 to actual value.
+│       │   │   │                        Has icon, title, and animated number.
+│       │   │   │
+│       │   │   ├── TrackCard.jsx      ← Card component to display a single track.
+│       │   │   │                        Shows: track name, artist, genre badge,
+│       │   │   │                        popularity bucket badge, popularity score,
+│       │   │   │                        and duration in MM:SS format.
+│       │   │   │                        Used in Explorer and Recommendations.
+│       │   │   │
+│       │   │   ├── Badge.jsx          ← Small colored label/chip component.
+│       │   │   │                        Used for genre names, popularity buckets.
+│       │   │   │
+│       │   │   └── Loader.jsx         ← Spinning loading indicator.
+│       │   │                            Used as skeleton while data loads.
+│       │   │
+│       │   └── charts/
+│       │       ├── TopGenresBar.jsx   ← Bar chart showing top 10 genres.
+│       │       │                        Uses Recharts BarChart.
+│       │       │                        Fetches from GET /api/genres/top?limit=10
+│       │       │
+│       │       ├── PopularityPie.jsx  ← Pie chart of popularity distribution.
+│       │       │                        Shows % of tracks in each bucket
+│       │       │                        (Low / Medium / Popular / Hit).
+│       │       │                        Fetches from GET /api/analytics/
+│       │       │                        popularity-distribution
+│       │       │
+│       │       ├── FeatureTrends.jsx  ← Multi-line chart: audio features vs
+│       │       │                        genres. Shows danceability, energy,
+│       │       │                        valence, etc. per genre. Toggleable
+│       │       │                        feature lines. Uses Recharts LineChart.
+│       │       │                        Fetches from GET /api/analytics/
+│       │       │                        feature-trends
+│       │       │
+│       │       └── RadarComparison.jsx ← Radar/spider chart comparing audio
+│       │                                 features across top 5 genres.
+│       │                                 Each genre is a colored polygon.
+│       │                                 Fetches from GET /api/analytics/
+│       │                                 feature-trends (same endpoint, different
+│       │                                 visualization).
+│       │
+│       │
+│       ├── hooks/
+│       │   ├── useAPI.js              ← CENTRALIZED API CLIENT.
+│       │   │                            Creates an Axios instance pointed at
+│       │   │                            VITE_API_URL (the backend).
+│       │   │                            Request interceptor: auto-attaches
+│       │   │                            JWT token to every request.
+│       │   │                            Response interceptor: handles 401
+│       │   │                            errors (expired session redirect).
+│       │   │                            Exports named functions for each
+│       │   │                            endpoint: getDashboard(), searchTracks(),
+│       │   │                            predictPopularity(), etc.
+│       │   │
+│       │   └── useDebounce.js         ← Custom React hook that delays updating
+│       │                                a value until the user stops typing.
+│       │                                Used in Explorer search (400ms delay)
+│       │                                and Recommendations search (300ms).
+│       │                                Prevents an API call on every keystroke.
+│       │
+│       ├── context/
+│       │   └── AuthContext.jsx        ← GLOBAL AUTH STATE (React Context).
+│       │                                Stores: user, token.
+│       │                                On app start, reads from localStorage
+│       │                                to restore session.
+│       │                                Provides: login(), logout() functions.
+│       │                                All components can access auth state
+│       │                                via useAuth() hook without prop drilling.
+│       │
+│       └── utils/
+│           └── formatters.js          ← PURE UTILITY FUNCTIONS (no React).
+│                                        formatDuration(minutes) → "3:24"
+│                                        getBucketColor(bucket) → CSS class
+│                                        formatSimilarity(score) → "87%"
+│                                        formatPopularity(score) → "73/100"
+│                                        truncate(text, len) → "Long tex..."
+│                                        formatAudioFeature(val) → "0.73"
+│
+│
+├── docker/                            ← Additional Docker config files
+│
+└── docs/                              ← Project documentation assets
+
+
+================================================================================
+  4. TECH STACK — WHAT, WHY, AND HOW EACH IS USED
+================================================================================
+
+  ─────────────────────────────────────────────────────────────────────────────
+  POSTGRESQL (via Neon Cloud)
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   Open-source relational database.
+  WHY:    100k+ tracks with relationships between tracks, artists, genres.
+          SQL is perfect for GROUP BY, COUNT, AVG queries needed for analytics.
+          Neon provides a free, serverless PostgreSQL instance in the cloud
+          so data persists even when containers restart.
+  HOW:    Stores 3 main tables: tracks, artists, genres.
+          Also: users, etl_logs, model_predictions.
+          FastAPI connects to it via DATABASE_URL in the .env file.
+          Connection is managed by SQLAlchemy. Every API request gets a
+          session via the get_db() dependency injector in session.py.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  FASTAPI (Python)
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   Modern Python web framework for building REST APIs.
+  WHY:    Chosen over Flask/Django because:
+          - Automatic API docs (Swagger UI at /docs)
+          - Pydantic validation built-in (auto-validates JSON)
+          - Native async support
+          - Fastest Python web framework
+  HOW:    Runs with Uvicorn ASGI server on port 8000.
+          Organized into routers (api/) → services (services/) → models (models/).
+          CORS is configured to allow requests from http://localhost:3000.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  SQLALCHEMY
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   Python ORM (Object-Relational Mapper).
+  WHY:    Write Python instead of raw SQL. Model classes map directly to DB
+          tables. Prevents SQL injection by design.
+  HOW:    Models in backend/app/models/ inherit from Base.
+          Queries written in Python: db.query(Track).filter(...).all()
+          SQLAlchemy translates this to SQL and runs it against Neon.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  PANDAS
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   Python data manipulation library.
+  WHY:    Makes reading/cleaning CSV data trivially easy.
+          Handles 100k rows efficiently in memory.
+  HOW:    Used in extract.py to read the CSV.
+          Used in transform.py to clean (drop duplicates, fill NaN, create
+          computed columns like duration_minutes and popularity_bucket).
+          Used in train.py to prepare training data for the ML model.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  SCIKIT-LEARN (Machine Learning)
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   Python machine learning library.
+  WHY:    Provides RandomForestRegressor for popularity prediction.
+          Also provides StandardScaler for feature normalization.
+          Industry-standard, well-documented, easy to use.
+  HOW:    train.py: Loads track data, creates feature matrix X (audio features)
+          and target y (popularity). Fits a StandardScaler, then trains a
+          RandomForestRegressor. Saves both to .pkl files.
+          predict.py: At inference time, loads .pkl files, scales new input,
+          runs model.predict(), returns popularity score.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  NUMPY
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   Numerical computing library for Python.
+  WHY:    Needed for cosine similarity computation.
+  HOW:    In track_service.py, each track is converted to a numpy array of
+          its audio features. numpy's array operations compute cosine similarity
+          between the seed track and all other tracks simultaneously (vectorized,
+          very fast).
+
+  ─────────────────────────────────────────────────────────────────────────────
+  APACHE AIRFLOW
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   Workflow orchestration and scheduling platform.
+  WHY:    In real data engineering, you never run ETL manually. Airflow runs
+          pipelines on a schedule and handles retries on failure. This shows
+          production-level thinking for a portfolio project.
+  HOW:    The DAG file (spotify_etl_dag.py) defines a workflow with 4 tasks.
+          Airflow's scheduler triggers it daily. The webserver UI (port 8081)
+          lets you manually trigger runs, see logs, and monitor task status.
+          Airflow uses a separate Postgres container for its own metadata.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  REACT (with Vite)
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   JavaScript UI library for building component-based web apps.
+  WHY:    Industry-standard for interactive dashboards. Component model lets
+          us reuse TrackCard, KPICard, Badge etc. across pages.
+          State management (useState, useEffect) handles async API data.
+  HOW:    Single Page Application (SPA): index.html is served once, then
+          React Router handles navigation client-side (no full page reloads).
+          Each page fetches its own data via useAPI.js on mount.
+          Vite is the build tool (replaces Create React App) — much faster.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  TAILWIND CSS
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   Utility-first CSS framework.
+  WHY:    Write styles directly in JSX without creating separate CSS files.
+          Consistent design tokens (spacing, colors, border-radius).
+          Purges unused CSS in production (tiny bundle size).
+  HOW:    Used throughout all JSX files as className utilities.
+          Dark theme: bg-[#0a0a0a], text-white, bg-white/5 (white with opacity)
+          Spotify green: #1DB954 used for accents throughout.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  RECHARTS
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   React charting library built on D3.js.
+  WHY:    Natively supports React's component model. Responsive out of the box.
+          Supports bar, line, pie, and radar charts we needed.
+  HOW:    Each chart component (TopGenresBar, PopularityPie, etc.) uses
+          ResponsiveContainer to fill its parent div, then the specific chart
+          type (BarChart, LineChart, etc.) with axes, tooltips, and data.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  FRAMER MOTION
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   React animation library.
+  WHY:    Adds micro-animations (hover effects, page transitions, number
+          counting) that make the UI feel premium and alive.
+  HOW:    KPICard uses animate() to count numbers up on load.
+          TrackCard uses whileHover={{ y: -4 }} to lift cards on hover.
+          Predictor result uses AnimatePresence for smooth appear/disappear.
+          SVG circle in Predictor uses animate for the score ring drawing.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  AXIOS
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   HTTP client for making API calls from the browser.
+  WHY:    Cleaner than native fetch. Interceptors let us add auth headers
+          and handle errors globally in one place (useAPI.js).
+  HOW:    A single Axios instance created with baseURL pointing to the backend.
+          All API calls go through this instance, automatically getting the
+          JWT auth header attached via the request interceptor.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  DOCKER & DOCKER COMPOSE
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   Containerization platform.
+  WHY:    "Works on my machine" is not good enough for a portfolio. Docker
+          packages each service with all its dependencies into an isolated
+          container that runs identically anywhere.
+  HOW:    docker-compose.yml defines 6 services:
+            1. frontend   — Nginx serving the React build (port 3000)
+            2. backend    — FastAPI with Uvicorn (port 8000)
+            3. postgres   — Airflow's metadata database
+            4. airflow-init    — One-time Airflow setup container
+            5. airflow-scheduler — Runs the scheduler process
+            6. airflow-webserver — Hosts the Airflow UI (port 8081)
+          All containers share the "spotify-net" network so they can
+          talk to each other by container name (e.g., "backend:8000").
+
+  ─────────────────────────────────────────────────────────────────────────────
+  NGINX
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   High-performance web server.
+  WHY:    React apps are just static HTML/JS/CSS files. Nginx serves them
+          efficiently. Also handles SPA routing (try_files directive).
+  HOW:    The frontend Dockerfile builds React into a dist/ folder, then
+          copies it into an Nginx image. nginx.conf sets try_files so that
+          any URL like /dashboard serves index.html (letting React Router
+          handle routing client-side rather than nginx returning 404).
+
+  ─────────────────────────────────────────────────────────────────────────────
+  ALEMBIC
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   Database migration tool for SQLAlchemy.
+  WHY:    Tracks schema changes over time. If you add a column, Alembic
+          generates a migration script to apply that change to the live DB.
+  HOW:    alembic.ini points to the DATABASE_URL. Migration files in alembic/
+          versions/ describe schema changes. Run "alembic upgrade head" to
+          apply all pending migrations.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  JOSE / PYTHON-JOSE (JWT)
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   JSON Web Token library.
+  WHY:    Stateless authentication. The server doesn't store sessions.
+          Instead, it issues a signed token. The client sends this token
+          with every request and the server verifies the signature.
+  HOW:    auth_service.py creates tokens with create_access_token().
+          auth.py's get_current_user() decodes and validates the token.
+          Tokens expire after 30 minutes (configurable via .env).
+
+  ─────────────────────────────────────────────────────────────────────────────
+  REACT ROUTER DOM
+  ─────────────────────────────────────────────────────────────────────────────
+  WHAT:   Client-side routing for React.
+  WHY:    Enables multi-page navigation without full page reloads.
+          Each URL (/dashboard, /explore) maps to a React component.
+  HOW:    App.jsx wraps everything in <BrowserRouter>.
+          <Routes> and <Route> define the URL-to-component mapping.
+          <Link> and <NavLink> in Navbar enable navigation.
+          The wildcard route (*) catches unknown URLs and redirects to /.
+
+
+================================================================================
+  5. HOW EVERY LAYER CONNECTS TO EACH OTHER
+================================================================================
+
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │  Layer 1: DATA LAYER (Neon PostgreSQL)                                   │
+  │                                                                          │
+  │  Contains: tracks, artists, genres, users, etl_logs, model_predictions  │
+  │  Accessed by: SQLAlchemy ORM in backend/app/models/                      │
+  │  Populated by: ETL pipeline in backend/etl/                              │
+  └──────────────────────────────┬───────────────────────────────────────────┘
+                                 │ SQLAlchemy queries
+  ┌──────────────────────────────▼───────────────────────────────────────────┐
+  │  Layer 2: SERVICE LAYER (backend/app/services/)                          │
+  │                                                                          │
+  │  analytics_service.py → GROUP BY, COUNT, AVG SQL queries                │
+  │  track_service.py     → Search, filter, pagination + cosine similarity  │
+  │  prediction_service.py → Load .pkl files + run ML inference             │
+  │  auth_service.py      → Hash passwords, create/verify JWT tokens        │
+  └──────────────────────────────┬───────────────────────────────────────────┘
+                                 │ Service function calls
+  ┌──────────────────────────────▼───────────────────────────────────────────┐
+  │  Layer 3: API LAYER (backend/app/api/)                                   │
+  │                                                                          │
+  │  dashboard.py      → GET /api/dashboard                                 │
+  │  genres.py         → GET /api/genres/top                                │
+  │  tracks.py         → GET /api/tracks/search                             │
+  │  analytics.py      → GET /api/analytics/*                               │
+  │  predictions.py    → POST /api/predict                                  │
+  │  recommendations.py → GET /api/recommendations/{id}                     │
+  │  auth.py           → POST /api/auth/login|register                      │
+  └──────────────────────────────┬───────────────────────────────────────────┘
+                                 │ HTTP (JSON responses)
+  ┌──────────────────────────────▼───────────────────────────────────────────┐
+  │  Layer 4: API CLIENT (frontend/src/hooks/useAPI.js)                      │
+  │                                                                          │
+  │  Single Axios instance with base URL from VITE_API_URL env var.         │
+  │  Named exports: getDashboard(), searchTracks(), predictPopularity(), etc │
+  └──────────────────────────────┬───────────────────────────────────────────┘
+                                 │ React useState/useEffect
+  ┌──────────────────────────────▼───────────────────────────────────────────┐
+  │  Layer 5: UI LAYER (frontend/src/pages/ + components/)                   │
+  │                                                                          │
+  │  Pages call API functions in useEffect() on mount.                      │
+  │  Data stored in useState(). Components re-render with new data.         │
+  │  Charts, cards, and tables display the data visually.                   │
+  └──────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+  6. THE 5 PAGES — WHAT EACH ONE DOES IN DETAIL
+================================================================================
+
+  PAGE 1: LANDING (/)
+  ──────────────────
+  - On mount: calls GET /api/dashboard
+  - Response: { total_tracks, total_artists, total_genres, avg_popularity }
+  - Displays 4 KPI cards with animated number counters (Framer Motion)
+  - Also has a hero section with the project tagline
+  - Navigation links to all other pages
+
+  PAGE 2: DASHBOARD (/dashboard)
+  ──────────────────────────────
+  - Mounts 4 independent chart components (they fetch in parallel)
+  - TopGenresBar: GET /api/genres/top?limit=10
+    → Bar chart: X=genre name, Y=track count
+  - PopularityPie: GET /api/analytics/popularity-distribution
+    → Pie chart: slices for Low/Medium/Popular/Hit
+  - FeatureTrends: GET /api/analytics/feature-trends
+    → Line chart: X=genre, Y=feature value (0-1), one line per feature
+    → Toggleable feature lines (click to show/hide)
+  - RadarComparison: Same /feature-trends endpoint
+    → Radar chart: each axis is a feature, each polygon is a genre
+
+  PAGE 3: EXPLORER (/explore)
+  ───────────────────────────
+  - On mount: fetches genres for filter dropdown
+  - Then fetches tracks with default params (popularity, desc, page 1)
+  - Search box: debounced (400ms) to avoid excessive API calls
+  - Any filter change resets to page 1 automatically
+  - Results displayed as grid of TrackCards (20 per page)
+  - Bottom pagination with Prev/Next buttons + "Jump to page" input
+  - Skeleton loading state (pulsing gray boxes) while fetching
+
+  PAGE 4: HIT PREDICTOR (/predict)
+  ─────────────────────────────────
+  - Left panel: 7 range sliders (0-1) + 1 number input (tempo)
+  - User adjusts sliders to define their song's audio profile
+  - Clicks "Predict Popularity" button
+  - POST /api/predict with { danceability, energy, valence, ... }
+  - Backend scales features with saved StandardScaler
+  - Runs RandomForestRegressor.predict() → popularity score
+  - Maps score to category: Low (<30), Medium (30-60), Popular (60-80), Hit (80+)
+  - Right panel: animated circular score gauge + category badge
+  - Shows interpretation of each feature value
+
+  PAGE 5: RECOMMENDATIONS (/recommend)
+  ─────────────────────────────────────
+  - Search box with live dropdown (300ms debounce)
+  - Dropdown shows matching tracks from GET /api/tracks/search
+  - User clicks a track to select it as "seed track"
+  - Seed track's audio features shown as colored progress bars
+  - User clicks "Find Similar Tracks"
+  - GET /api/recommendations/{track_id}
+  - Backend logic:
+    1. Loads all tracks from DB (up to 10,000)
+    2. Creates numpy vector for each: [dance, energy, speech, acoustic, ...]
+    3. Computes cosine_similarity(seed_vector, all_vectors)
+    4. Returns top 10 highest similarity tracks
+  - Displays result as grid of TrackCards with similarity % badge
+
+
+================================================================================
+  7. THE MACHINE LEARNING SYSTEM
+================================================================================
+
+  MODEL: RandomForestRegressor (Scikit-Learn)
+  TARGET: Track popularity score (0-100)
+  FEATURES:
+    - danceability       (0.0 to 1.0)
+    - energy             (0.0 to 1.0)
+    - valence            (0.0 to 1.0) [musical "happiness"]
+    - speechiness        (0.0 to 1.0)
+    - acousticness       (0.0 to 1.0)
+    - instrumentalness   (0.0 to 1.0)
+    - liveness           (0.0 to 1.0)
+    - tempo              (40 to 250 BPM)
+
+  TRAINING FLOW (backend/app/ml/train.py):
+    1. Connect to DB, load all tracks into a DataFrame
+    2. Drop rows with null feature values
+    3. Fit StandardScaler on the feature columns
+    4. Split data: 80% train, 20% test
+    5. Train RandomForestRegressor(n_estimators=100)
+    6. Evaluate on test set (RMSE, R²)
+    7. Save model → model.pkl, scaler → scaler.pkl
+
+  INFERENCE FLOW (per API request to POST /api/predict):
+    1. Load model.pkl and scaler.pkl from disk
+    2. Receive feature values in request JSON
+    3. Scale features using the loaded scaler
+    4. Run model.predict(scaled_features)
+    5. Return predicted score + category label
+
+  RECOMMENDATION ENGINE (backend/app/services/track_service.py):
+    Algorithm: Cosine Similarity
+    "Cosine similarity measures the angle between two vectors.
+     If two songs have similar audio features, their vectors point
+     in the same direction → high cosine similarity → similar tracks."
+
+    1. Load seed track from DB
+    2. Load up to 10,000 other tracks
+    3. Build feature matrix: [danceability, energy, speechiness,
+       acousticness, instrumentalness, liveness, valence, tempo/250]
+    4. sklearn.metrics.pairwise.cosine_similarity(seed, all_tracks)
+    5. Sort by similarity score descending
+    6. Return top 10
+
+
+================================================================================
+  8. THE ETL PIPELINE (AIRFLOW)
+================================================================================
+
+  ETL = Extract → Transform → Load
+
+  What it does:
+    - Takes raw Spotify CSV data
+    - Cleans and enriches it
+    - Loads it into the PostgreSQL database
+
+  DAG: spotify_etl (defined in backend/airflow/dags/spotify_etl_dag.py)
+  Schedule: Daily (can be manually triggered from Airflow UI)
+
+  TASK 1 — EXTRACT (backend/etl/extract.py):
+    - Reads spotify_tracks.csv using pandas.read_csv()
+    - Returns raw DataFrame with all columns
+
+  TASK 2 — TRANSFORM (backend/etl/transform.py):
+    - Drops exact duplicate rows
+    - Drops rows where track_id is null
+    - Fills numeric nulls with 0
+    - Creates duration_minutes = duration_ms / 60000
+    - Creates popularity_bucket:
+        0-29   → "Low"
+        30-59  → "Medium"
+        60-79  → "Popular"
+        80-100 → "Hit"
+    - Creates energy_level: Low/Medium/High based on energy value
+    - Creates danceability_level: Low/Medium/High based on danceability
+    - Creates tempo_category: Slow/Moderate/Fast/Very Fast
+
+  TASK 3 — LOAD (backend/etl/load.py):
+    - For each row in clean DataFrame:
+      - Upsert genre_name into genres table (get or create)
+      - Upsert artist_name into artists table (get or create)
+      - Upsert track into tracks table using track_id as unique key
+        (update if exists, insert if new — handles re-runs safely)
+    - Commits in batches for performance
+
+  TASK 4 — LOG:
+    - Writes a record to etl_logs table:
+      { run_timestamp, rows_processed, status: "success" }
+    - Useful for monitoring pipeline health over time
+
+
+================================================================================
+  9. THE DOCKER SETUP
+================================================================================
+
+  docker-compose.yml defines 6 services on the "spotify-net" bridge network:
+
+  SERVICE 1: postgres
+    Image: postgres:15
+    Port: 5432 (internal only)
+    Purpose: Airflow's metadata database (NOT your app data — that's on Neon)
+    Stores: Airflow DAG runs, task logs, scheduler state
+
+  SERVICE 2: airflow-init
+    Runs once on startup to initialize Airflow's metadata tables.
+    Creates the admin/admin user for the Airflow UI.
+    Exits after init is complete.
+
+  SERVICE 3: airflow-scheduler
+    Continuously watches DAG files and triggers tasks on schedule.
+    Depends on postgres being healthy.
+
+  SERVICE 4: airflow-webserver
+    Hosts the Airflow UI at http://localhost:8081
+    Login: admin / admin
+    Lets you manually trigger DAGs, view task logs, monitor runs.
+    Depends on postgres being healthy.
+
+  SERVICE 5: backend
+    Built from backend/Dockerfile
+    Base image: python:3.11-slim
+    Installs requirements.txt
+    Runs: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    Port: 8000 (mapped to host)
+    Reads DATABASE_URL from .env to connect to Neon PostgreSQL
+
+  SERVICE 6: frontend
+    Built from frontend/Dockerfile (2-stage build)
+    Stage 1: node:20-alpine → npm ci → npm run build → dist/
+    Stage 2: nginx:alpine → copies dist/ → serves on port 80
+    Host port: 3000 → container port: 80
+    nginx.conf handles SPA routing (try_files → index.html)
+
+  All containers share "spotify-net" bridge network.
+  Backend container is reachable as "backend" from other containers.
+  The VITE_API_URL is baked into the frontend build at compile time.
+
+
+================================================================================
+  10. ENVIRONMENT VARIABLES & CONFIGURATION
+================================================================================
+
+  ROOT .env (spotify-analytics-platform/.env):
+  ─────────────────────────────────────────────
+  DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/dbname?sslmode=require
+    → Neon PostgreSQL connection string used by the FastAPI backend
+
+  SECRET_KEY=your-64-character-random-secret-key
+    → Used to sign JWT authentication tokens. Keep this secret!
+
+  ALGORITHM=HS256
+    → JWT signing algorithm
+
+  ACCESS_TOKEN_EXPIRE_MINUTES=30
+    → How long login sessions last
+
+  POSTGRES_USER=airflow
+  POSTGRES_PASSWORD=airflow
+  POSTGRES_DB=airflow
+    → Credentials for the local Postgres container (Airflow metadata only)
+
+  FRONTEND .env (frontend/.env):
+  ────────────────────────────────
+  VITE_API_URL=http://localhost:8000
+    → The URL the React app uses to call the backend API.
+    → IMPORTANT: This is baked into the JavaScript bundle at build time.
+    → If deploying to cloud, this must be the deployed backend URL.
+
+
+================================================================================
+  11. HOW TO RUN THE PROJECT
+================================================================================
+
+  PREREQUISITES:
+    - Docker Desktop installed and running
+    - Git (to clone the repo)
+
+  STEP 1: Clone/open the project
+    cd spotify-analytics-platform
+
+  STEP 2: Set up environment variables
+    Edit .env in the root folder with your Neon DATABASE_URL and SECRET_KEY
+
+  STEP 3: Start everything
+    docker compose up --build
+
+    This takes 3-5 minutes the first time (downloading images, building).
+    Watch the logs until you see:
+      backend → "Uvicorn running on http://0.0.0.0:8000"
+      frontend → (nginx starts silently)
+      airflow-webserver → "Listening at: http://0.0.0.0:8080"
+
+  STEP 4: Open the apps
+    Frontend:     http://localhost:3000
+    Backend docs: http://localhost:8000/docs  (Swagger UI auto-generated)
+    Airflow UI:   http://localhost:8081       (login: admin / admin)
+
+  STEP 5: Trigger the ETL (first time)
+    - Open Airflow UI at http://localhost:8081
+    - Find the "spotify_etl" DAG
+    - Click the play button to trigger it manually
+    - Watch all 4 tasks go green (takes 2-3 minutes)
+    - Check Neon dashboard — tracks table should now have 100k+ rows
+
+  USEFUL COMMANDS:
+    docker compose logs backend      → See backend server logs
+    docker compose logs frontend     → See nginx logs
+    docker compose logs -f           → Follow all logs live
+    docker compose down              → Stop all containers
+    docker compose up -d             → Start in background (detached mode)
+    docker compose up -d --build     → Rebuild and start (after code changes)
+
+================================================================================
+  END OF DOCUMENT
+================================================================================
+
+
+================================================================================
+  12. AUTHENTICATION SYSTEM (Added After Initial Build)
+================================================================================
+
+  OVERVIEW:
+    The platform has a full JWT-based authentication system. Two pages require
+    login (Hit Predictor and Recommendations). The rest are public.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  PUBLIC ROUTES (no login needed)
+  ─────────────────────────────────────────────────────────────────────────────
+    /              → Landing Page
+    /dashboard     → Analytics Dashboard
+    /explore       → Track Explorer
+    POST /api/auth/register  → Create account
+    POST /api/auth/login     → Get JWT token
+
+  ─────────────────────────────────────────────────────────────────────────────
+  PROTECTED ROUTES (login required)
+  ─────────────────────────────────────────────────────────────────────────────
+    /predict       → Hit Predictor (ML)
+    /recommend     → AI Recommendations
+    POST /api/predict              → Backend also enforces JWT check
+    GET  /api/recommendations/{id} → Backend also enforces JWT check
+
+  ─────────────────────────────────────────────────────────────────────────────
+  HOW REGISTRATION WORKS
+  ─────────────────────────────────────────────────────────────────────────────
+    1. User clicks "Log in" in the Navbar → AuthModal opens
+    2. User switches to "Sign up" tab in the modal
+    3. User enters email + password → clicks "Create Account"
+    4. Frontend sends POST /api/auth/register with JSON { email, password }
+    5. Backend (auth_service.py):
+         - Checks email is not already taken
+         - Hashes password using bcrypt (never stores plain text)
+         - Creates a new row in the "users" table in PostgreSQL
+    6. Modal shows success message → auto-switches to login mode
+
+  ─────────────────────────────────────────────────────────────────────────────
+  HOW LOGIN WORKS
+  ─────────────────────────────────────────────────────────────────────────────
+    1. User enters email + password → clicks "Sign In"
+    2. Frontend sends POST /api/auth/login with form-encoded data:
+         username=email&password=password
+         (FastAPI OAuth2 requires form format, not JSON)
+    3. Backend (auth.py):
+         - Looks up user by email in DB
+         - Verifies password against stored bcrypt hash
+         - If valid, creates a JWT token signed with SECRET_KEY
+         - Token contains: { sub: email, exp: 30min from now }
+         - Returns: { access_token, token_type: "bearer" }
+    4. Frontend (AuthContext.jsx):
+         - Stores token in localStorage (persists across refreshes)
+         - Stores user object { email } in localStorage
+         - AuthModal closes
+         - Navbar updates to show username + logout button
+
+  ─────────────────────────────────────────────────────────────────────────────
+  HOW PROTECTED ROUTES WORK (DOUBLE LAYER SECURITY)
+  ─────────────────────────────────────────────────────────────────────────────
+    LAYER 1 — FRONTEND (ProtectedRoute.jsx):
+      - When navigating to /predict or /recommend:
+        - React checks useAuth() → if user is null (not logged in):
+          - Shows "Login Required" screen with Sign In + Create Account buttons
+          - Buttons open AuthModal for immediate login
+          - After login, user is redirected to intended page automatically
+        - If user IS logged in: renders the page normally
+
+    LAYER 2 — BACKEND (FastAPI dependency injection):
+      - predictions.py: Depends(get_current_user)
+      - recommendations.py: Depends(get_current_user)
+      - get_current_user() (in auth.py):
+          1. Reads "Authorization: Bearer <token>" header from request
+          2. Decodes JWT using SECRET_KEY
+          3. Checks token expiry
+          4. Looks up user in DB by email in token
+          5. If any step fails → returns 401 Unauthorized
+          6. If valid → passes user object to the route handler
+      - Even if someone bypasses the frontend (e.g. Postman, curl),
+        they cannot access the endpoint without a valid token.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  HOW LOGOUT WORKS
+  ─────────────────────────────────────────────────────────────────────────────
+    1. User clicks logout icon in Navbar
+    2. logout() in AuthContext is called:
+         - Removes token from localStorage
+         - Removes user from localStorage
+         - Sets user and token state to null
+    3. Navbar immediately shows "Log in" button again
+    4. If user was on a protected page, ProtectedRoute detects user is null
+       and shows the "Login Required" screen without a page reload
+
+  ─────────────────────────────────────────────────────────────────────────────
+  FILES INVOLVED IN AUTH SYSTEM
+  ─────────────────────────────────────────────────────────────────────────────
+    backend/app/api/auth.py            → API endpoints + JWT validation
+    backend/app/services/auth_service.py → Business logic (bcrypt, token creation)
+    backend/app/models/user.py         → users table in PostgreSQL
+    frontend/src/context/AuthContext.jsx → Global auth state (React Context)
+    frontend/src/components/ui/AuthModal.jsx    → Login/Register modal UI
+    frontend/src/components/layout/ProtectedRoute.jsx → Route guard component
+    frontend/src/components/layout/Navbar.jsx  → Login button + user display
+    frontend/src/hooks/useAPI.js       → Axios interceptors (auto-attach token)
+
+  ─────────────────────────────────────────────────────────────────────────────
+  SECURITY NOTES
+  ─────────────────────────────────────────────────────────────────────────────
+    - Passwords are NEVER stored in plain text (bcrypt hashed)
+    - JWT tokens are signed with SECRET_KEY (set in .env)
+    - Tokens expire after 30 minutes (ACCESS_TOKEN_EXPIRE_MINUTES in .env)
+    - The Axios interceptor only redirects on 401 if the user had a stored token
+      (prevents redirect loops on unauthenticated public endpoints)
+
+================================================================================
+  END OF DOCUMENT (v2 — includes Authentication System)
+================================================================================

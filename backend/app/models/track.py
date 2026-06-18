@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.database import Base
+from app.database.base import Base
 
 
 class Track(Base):
@@ -26,9 +26,22 @@ class Track(Base):
     valence = Column(Float)
     tempo = Column(Float)
     time_signature = Column(Integer)
+    duration_minutes = Column(Float)
+    energy_level = Column(String)
+    danceability_level = Column(String)
+    tempo_category = Column(String)
+    popularity_bucket = Column(String)
 
     artist_id = Column(Integer, ForeignKey("artists.id"))
     genre_id = Column(Integer, ForeignKey("genres.id"))
 
     artist = relationship("Artist", back_populates="tracks")
     genre = relationship("Genre", back_populates="tracks")
+
+    @property
+    def artists(self):
+        return self.artist.artist_name if self.artist else "Unknown"
+
+    @property
+    def track_genre(self):
+        return self.genre.genre_name if self.genre else "Unknown"

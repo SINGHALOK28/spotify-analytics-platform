@@ -16,8 +16,7 @@ engine = create_engine(
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Create declarative base for models
-Base = declarative_base()
+from .base import Base
 
 
 def get_db():

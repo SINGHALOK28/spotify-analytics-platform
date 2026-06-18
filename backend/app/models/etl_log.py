@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from datetime import datetime
-from app.database import Base
+from app.database.base import Base
 
 
 class ETLLog(Base):
