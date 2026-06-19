@@ -21,8 +21,8 @@ export default function Monitoring() {
     const fetchMetrics = async () => {
       try {
         const [sysMetricsRes, etlStatusRes] = await Promise.all([
-          api.get('/admin/system-metrics'),
-          api.get('/admin/etl-status')
+          api.get('/api/admin/system-metrics'),
+          api.get('/api/admin/etl-status')
         ]);
         
         setMetrics(sysMetricsRes.data);
