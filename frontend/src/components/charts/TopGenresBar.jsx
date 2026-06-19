@@ -28,8 +28,8 @@ export default function TopGenresBar() {
   return (
     <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 h-80 flex flex-col">
       <h3 className="text-lg font-bold text-white mb-6">Top Genres by Track Count</h3>
-      <div className="flex-1 min-h-0">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="flex-1 min-h-0 w-full h-full">
+        <ResponsiveContainer width="99%" height="100%">
           <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
             <XAxis 
               dataKey="genre_name" 
