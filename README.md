@@ -2,7 +2,12 @@
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-View_App-1DB954?style=for-the-badge&logo=spotify&logoColor=white)](https://spotify-analytics-platform.vercel.app)
 
-![Dashboard Screenshot Placeholder](/docs/dashboard-screenshot.png)
+<p align="center">
+  <img src="docs/dashboard-screenshot.png" alt="Dashboard Screenshot" width="100%" />
+</p>
+
+### 🎥 Quick Video Tour
+https://github.com/SINGHALOK28/spotify-analytics-platform/raw/main/docs/dashboard-screenrecording.mp4
 
 > **Live URLs:**
 > - **Frontend (Vercel):** [https://spotify-analytics-platform.vercel.app](https://spotify-analytics-platform.vercel.app)
