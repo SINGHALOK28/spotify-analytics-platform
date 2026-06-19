@@ -1,5 +1,7 @@
 # Spotify Analytics Platform
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-View_App-1DB954?style=for-the-badge&logo=spotify&logoColor=white)](https://spotify-analytics-platform.vercel.app)
+
 ![Dashboard Screenshot Placeholder](/docs/dashboard-screenshot.png)
 
 > **Live URLs:**

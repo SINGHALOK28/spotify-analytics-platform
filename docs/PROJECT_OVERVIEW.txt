@@ -187,7 +187,8 @@ spotify-analytics-platform/           ← PROJECT ROOT
 │   │   │   ├── analytics.py           ← GET /api/analytics/popularity-distribution
 │   │   │   │                            GET /api/analytics/feature-trends
 │   │   │   │                            GET /api/analytics/top-tracks
-│   │   │   │                            Powers the Dashboard charts.
+│   │   │   │                            GET /api/analytics/top-tracks-by-genre
+│   │   │   │                            Powers the Dashboard charts and Recommendations page.
 │   │   │   │
 │   │   │   ├── predictions.py         ← POST /api/predict
 │   │   │   │                            🔒 PROTECTED — requires valid JWT token.
@@ -197,10 +198,12 @@ spotify-analytics-platform/           ← PROJECT ROOT
 │   │   │   │                            Powers the Hit Predictor page.
 │   │   │   │
 │   │   │   ├── recommendations.py     ← GET /api/recommendations/{track_id}
+│   │   │   │                            POST /api/recommendations/custom
 │   │   │   │                            🔒 PROTECTED — requires valid JWT token.
 │   │   │   │                            Runs cosine similarity algorithm
 │   │   │   │                            against all tracks in DB and returns
-│   │   │   │                            top 10 most similar tracks.
+│   │   │   │                            top 10 most similar tracks based on seed
+│   │   │   │                            track or custom feature vectors.
 │   │   │   │                            Powers Recommendations page.
 │   │   │   │
 │   │   │   └── auth.py                ← POST /api/auth/login + /register
@@ -435,6 +438,11 @@ spotify-analytics-platform/           ← PROJECT ROOT
 │   │                                    all serve index.html and React Router
 │   │                                    handles the routing client-side.
 │   │
+│   ├── vercel.json                    ← Vercel deployment configuration.
+│   │                                    Contains rewrite rules to redirect all
+│   │                                    paths to /index.html, fixing 404
+│   │                                    errors for React Router on refresh.
+│   │
 │   ├── vite.config.js                 ← Vite bundler configuration.
 │   │                                    Enables React plugin. Vite is used
 │   │                                    instead of Create React App because
@@ -511,12 +519,20 @@ spotify-analytics-platform/           ← PROJECT ROOT
 │       │                                User types a track name in search box.
 │       │                                Dropdown appears with matching tracks.
 │       │                                User selects a seed track.
-│       │                                Page shows that track's audio features
-│       │                                as progress bars.
-│       │                                User clicks "Find Similar Tracks".
-│       │                                Calls GET /api/recommendations/{id}.
-│       │                                Returns 10 similar tracks as cards.
+│       │                                Page shows interactive sliders for audio
+│       │                                features, initialized to seed track values.
+│       │                                User can tweak features and optionally
+│       │                                apply a Target Genre filter.
+│       │                                Calls POST /api/recommendations/custom.
+│       │                                Returns 10 custom similar tracks.
+│       │                                Also displays "Top Tracks by Genre"
+│       │                                at the bottom (fetched automatically).
 │       │
+│       │   └── Login.jsx              ← AUTHENTICATION PAGE (route: /login)
+│       │                                Handles both Login and Registration.
+│       │                                Registration includes strict frontend
+│       │                                password validation (8+ chars, upper,
+│       │                                lower, number) with real-time UI feedback.
 │       │
 │       ├── components/                ← REUSABLE UI COMPONENTS
 │       │   │
@@ -577,12 +593,12 @@ spotify-analytics-platform/           ← PROJECT ROOT
 │       │   │                            Creates an Axios instance pointed at
 │       │   │                            VITE_API_URL (the backend).
 │       │   │                            Request interceptor: auto-attaches
-│       │   │                            JWT token to every request.
+│       │   │                            JWT token to every request from sessionStorage.
 │       │   │                            Response interceptor: handles 401
 │       │   │                            errors (expired session redirect).
 │       │   │                            Exports named functions for each
 │       │   │                            endpoint: getDashboard(), searchTracks(),
-│       │   │                            predictPopularity(), etc.
+│       │   │                            getCustomRecommendations(), getTopTracksByGenre(), etc.
 │       │   │
 │       │   └── useDebounce.js         ← Custom React hook that delays updating
 │       │                                a value until the user stops typing.
@@ -593,8 +609,9 @@ spotify-analytics-platform/           ← PROJECT ROOT
 │       ├── context/
 │       │   └── AuthContext.jsx        ← GLOBAL AUTH STATE (React Context).
 │       │                                Stores: user, token.
-│       │                                On app start, reads from localStorage
-│       │                                to restore session.
+│       │                                On app start, reads from sessionStorage
+│       │                                to restore session (auto-logouts when
+│       │                                the browser window/tab is closed).
 │       │                                Provides: login(), logout() functions.
 │       │                                All components can access auth state
 │       │                                via useAuth() hook without prop drilling.
