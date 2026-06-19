@@ -16,3 +16,7 @@ def get_feature_trends(db: Session = Depends(get_db)):
 @router.get("/top-tracks")
 def get_top_tracks(db: Session = Depends(get_db)):
     return AnalyticsService.get_top_tracks(db)
+
+@router.get("/top-tracks-by-genre")
+def get_top_tracks_by_genre(db: Session = Depends(get_db)):
+    return AnalyticsService.get_top_tracks_by_genre(db)

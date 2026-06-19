@@ -47,6 +47,14 @@ export default function Login() {
       return;
     }
 
+    if (mode === 'register') {
+      const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+      if (!passRegex.test(password)) {
+        setError('Password does not meet the requirements.');
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -188,6 +196,26 @@ export default function Login() {
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
+            
+            {/* Password Instructions (Only on Register) */}
+            <AnimatePresence>
+              {mode === 'register' && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="text-xs text-white/50 bg-black/20 p-3 rounded-lg border border-white/5 mt-1"
+                >
+                  <p className="font-semibold mb-1 text-white/70">Password must contain:</p>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    <li className={password.length >= 8 ? "text-green-400" : ""}>At least 8 characters</li>
+                    <li className={/[A-Z]/.test(password) ? "text-green-400" : ""}>At least one uppercase letter</li>
+                    <li className={/[a-z]/.test(password) ? "text-green-400" : ""}>At least one lowercase letter</li>
+                    <li className={/\d/.test(password) ? "text-green-400" : ""}>At least one number</li>
+                  </ul>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Submit */}

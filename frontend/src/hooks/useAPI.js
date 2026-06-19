@@ -10,7 +10,7 @@ const api = axios.create({
 
 // Request interceptor to automatically add the JWT token
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -25,10 +25,10 @@ api.interceptors.response.use((response) => {
 }, (error) => {
   // Only redirect to home if it's a 401 AND there's a stored token (i.e., session expired)
   if (error.response && error.response.status === 401) {
-    const hasToken = localStorage.getItem('token');
+    const hasToken = sessionStorage.getItem('token');
     if (hasToken) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       window.location.href = '/';
     }
   }
@@ -57,9 +57,11 @@ export const searchTracks = (params) => {
 };
 export const predictPopularity = (features) => api.post('/api/predict', features);
 export const getRecommendations = (trackId) => api.get(`/api/recommendations/${trackId}`);
+export const getCustomRecommendations = (payload) => api.post('/api/recommendations/custom', payload);
 export const getPopularityDistribution = () => api.get('/api/analytics/popularity-distribution');
 export const getFeatureTrends = () => api.get('/api/analytics/feature-trends');
 export const getTopTracks = () => api.get('/api/analytics/top-tracks');
+export const getTopTracksByGenre = () => api.get('/api/analytics/top-tracks-by-genre');
 
 export const login = (formData) => api.post('/api/auth/login', formData, {
   headers: { 'Content-Type': 'application/x-www-form-urlencoded' }

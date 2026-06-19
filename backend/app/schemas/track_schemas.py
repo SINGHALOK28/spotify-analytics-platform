@@ -47,3 +47,14 @@ class TrackSearchParams(BaseModel):
     sort_dir: Optional[str] = "desc"
     page: int = 1
     page_size: int = 20
+
+class CustomRecommendationRequest(BaseModel):
+    danceability: float
+    energy: float
+    speechiness: float
+    acousticness: float
+    instrumentalness: float
+    liveness: float
+    valence: float
+    tempo: float
+    genre_filter: Optional[str] = None

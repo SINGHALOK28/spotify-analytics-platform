@@ -90,3 +90,32 @@ class AnalyticsService:
             d["track_genre"] = t.track_genre
             result.append(d)
         return result
+
+    @staticmethod
+    def get_top_tracks_by_genre(db: Session, limit_genres: int = 5, limit_tracks: int = 5):
+        # 1. Get top genres by track count
+        top_genres_query = db.query(
+            Genre.id, Genre.genre_name
+        ).join(Track, Genre.id == Track.genre_id)\
+         .group_by(Genre.id, Genre.genre_name)\
+         .order_by(desc(func.count(Track.id)))\
+         .limit(limit_genres).all()
+
+        results = []
+        # 2. For each genre, get top popular tracks
+        for genre_id, genre_name in top_genres_query:
+            tracks = db.query(Track).options(joinedload(Track.artist)).filter(Track.genre_id == genre_id).order_by(desc(Track.popularity)).limit(limit_tracks).all()
+            
+            track_list = []
+            for t in tracks:
+                d = {c.name: getattr(t, c.name) for c in t.__table__.columns}
+                d["artists"] = t.artists if hasattr(t, 'artists') else getattr(t, 'artist', None)
+                d["track_genre"] = genre_name
+                track_list.append(d)
+            
+            results.append({
+                "genre": genre_name,
+                "tracks": track_list
+            })
+            
+        return results

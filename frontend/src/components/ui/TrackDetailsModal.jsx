@@ -7,12 +7,12 @@ export default function TrackDetailsModal({ track, isOpen, onClose }) {
   if (!isOpen || !track) return null;
 
   const features = [
-    { label: 'Danceability', value: track.danceability, icon: Activity, color: 'text-[#1DB954]' },
-    { label: 'Energy', value: track.energy, icon: Zap, color: 'text-[#3b82f6]' },
-    { label: 'Valence', value: track.valence, icon: Heart, color: 'text-[#f59e0b]' },
-    { label: 'Acousticness', value: track.acousticness, icon: Disc, color: 'text-[#ec4899]' },
-    { label: 'Speechiness', value: track.speechiness, icon: Mic, color: 'text-[#8b5cf6]' },
-    { label: 'Instrumentalness', value: track.instrumentalness, icon: Piano, color: 'text-[#06b6d4]' },
+    { label: 'Danceability', value: track.danceability, icon: Activity, textColor: 'text-[#1DB954]', bgColor: 'bg-[#1DB954]' },
+    { label: 'Energy', value: track.energy, icon: Zap, textColor: 'text-[#3b82f6]', bgColor: 'bg-[#3b82f6]' },
+    { label: 'Valence', value: track.valence, icon: Heart, textColor: 'text-[#f59e0b]', bgColor: 'bg-[#f59e0b]' },
+    { label: 'Acousticness', value: track.acousticness, icon: Disc, textColor: 'text-[#ec4899]', bgColor: 'bg-[#ec4899]' },
+    { label: 'Speechiness', value: track.speechiness, icon: Mic, textColor: 'text-[#8b5cf6]', bgColor: 'bg-[#8b5cf6]' },
+    { label: 'Instrumentalness', value: track.instrumentalness, icon: Piano, textColor: 'text-[#06b6d4]', bgColor: 'bg-[#06b6d4]' },
   ];
 
   const popColor = getBucketColor(track.popularity_bucket);
@@ -104,7 +104,7 @@ export default function TrackDetailsModal({ track, isOpen, onClose }) {
                   
                   return (
                     <div key={feat.label} className="bg-black/20 rounded-xl p-4 border border-white/5 flex items-center gap-4">
-                      <div className={`p-2 rounded-lg bg-white/5 ${feat.color}`}>
+                      <div className={`p-2 rounded-lg bg-white/5 ${feat.textColor}`}>
                         <Icon size={20} />
                       </div>
                       <div className="flex-1">
@@ -117,7 +117,7 @@ export default function TrackDetailsModal({ track, isOpen, onClose }) {
                             initial={{ width: 0 }}
                             animate={{ width: `${percentage}%` }}
                             transition={{ duration: 1, ease: "easeOut" }}
-                            className={`h-full rounded-full ${feat.color.replace('text-', 'bg-')}`}
+                            className={`h-full rounded-full ${feat.bgColor}`}
                           />
                         </div>
                       </div>

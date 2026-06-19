@@ -98,3 +98,41 @@ class TrackService:
             })
 
         return recommendations
+
+    @staticmethod
+    def get_custom_recommendations(db: Session, target_features: list, genre_filter: str = None):
+        query = db.query(Track).outerjoin(Genre)
+        if genre_filter:
+            query = query.filter(Genre.genre_name.ilike(f"%{genre_filter}%"))
+        
+        other_tracks = query.limit(10000).all()
+        if not other_tracks:
+            return []
+
+        def get_feature_vector(track):
+            return [
+                track.danceability, track.energy, track.speechiness,
+                track.acousticness, track.instrumentalness, track.liveness,
+                track.valence, track.tempo / 250.0
+            ]
+
+        target_vector = np.array([target_features])
+        other_vectors = np.array([get_feature_vector(t) for t in other_tracks])
+
+        similarities = cosine_similarity(target_vector, other_vectors)[0]
+        top_indices = np.argsort(similarities)[::-1][:10]
+
+        recommendations = []
+        for idx in top_indices:
+            track = other_tracks[idx]
+            sim_score = float(similarities[idx]) * 100 
+            recommendations.append({
+                "track_id": track.track_id,
+                "track_name": track.track_name,
+                "similarity_score": round(sim_score, 2),
+                "popularity": track.popularity,
+                "artists": track.artists if hasattr(track, 'artists') else getattr(track, 'artist', None),
+                "track_genre": track.track_genre if hasattr(track, 'track_genre') else getattr(track, 'genre', None)
+            })
+
+        return recommendations

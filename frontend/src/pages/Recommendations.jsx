@@ -4,7 +4,7 @@ import PageWrapper from '../components/layout/PageWrapper';
 import TrackCard from '../components/ui/TrackCard';
 import Loader from '../components/ui/Loader';
 import useDebounce from '../hooks/useDebounce';
-import { searchTracks, getRecommendations } from '../hooks/useAPI';
+import { searchTracks, getCustomRecommendations, getTopTracksByGenre, getTopGenres } from '../hooks/useAPI';
 import { formatAudioFeature } from '../utils/formatters';
 
 const AUDIO_FEATURES = ['danceability', 'energy', 'valence', 'speechiness', 'acousticness', 'instrumentalness', 'liveness'];
@@ -20,8 +20,25 @@ export default function Recommendations() {
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
+  
+  const [customFeatures, setCustomFeatures] = useState({});
+  const [selectedGenre, setSelectedGenre] = useState('');
+  const [availableGenres, setAvailableGenres] = useState([]);
+  
+  const [topTracksByGenre, setTopTracksByGenre] = useState([]);
+  const [loadingTop, setLoadingTop] = useState(true);
 
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    getTopGenres(20).then(res => setAvailableGenres(res.data)).catch(console.error);
+    getTopTracksByGenre()
+      .then(res => {
+        setTopTracksByGenre(res.data);
+      })
+      .catch(console.error)
+      .finally(() => setLoadingTop(false));
+  }, []);
 
   useEffect(() => {
     if (debouncedQuery) {
@@ -55,14 +72,27 @@ export default function Recommendations() {
     setQuery('');
     setShowDropdown(false);
     setRecommendations([]);
+    
+    // Initialize custom features
+    const initialFeatures = {};
+    AUDIO_FEATURES.forEach(feat => {
+      initialFeatures[feat] = track[feat] || 0;
+    });
+    // Tempo requires special handling as it's not 0-1
+    initialFeatures['tempo'] = track.tempo || 120;
+    setCustomFeatures(initialFeatures);
   };
 
   const handleFindSimilar = () => {
     if (!selectedTrack) return;
     setLoadingRecs(true);
-    getRecommendations(selectedTrack.track_id)
+    
+    const payload = { ...customFeatures };
+    if (selectedGenre) payload.genre_filter = selectedGenre;
+    
+    getCustomRecommendations(payload)
       .then(res => setRecommendations(res.data))
-      .catch(err => console.error("Error fetching recommendations:", err))
+      .catch(err => console.error("Error fetching custom recommendations:", err))
       .finally(() => setLoadingRecs(false));
   };
 
@@ -124,24 +154,56 @@ export default function Recommendations() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6 mb-8">
             {AUDIO_FEATURES.map(feat => {
-              const val = selectedTrack[feat] || 0;
+              const val = customFeatures[feat] || 0;
               return (
-                <div key={feat} className="flex flex-col">
+                <div key={feat} className="flex flex-col gap-2">
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-white/70 capitalize">{feat}</span>
-                    <span className="font-mono text-white/90">{formatAudioFeature(val)}</span>
+                    <span className="font-mono text-[#1DB954]">{formatAudioFeature(val)}</span>
                   </div>
-                  <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-[#1DB954]"
-                      style={{ width: `${val * 100}%` }}
-                    />
-                  </div>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="1" 
+                    step="0.01" 
+                    value={val}
+                    onChange={(e) => setCustomFeatures({ ...customFeatures, [feat]: parseFloat(e.target.value) })}
+                    className="w-full accent-[#1DB954] cursor-pointer"
+                  />
                 </div>
               );
             })}
+            <div className="flex flex-col gap-2">
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-white/70 capitalize">Tempo (BPM)</span>
+                <span className="font-mono text-[#1DB954]">{Math.round(customFeatures.tempo || 120)}</span>
+              </div>
+              <input 
+                type="range" 
+                min="50" 
+                max="250" 
+                step="1" 
+                value={customFeatures.tempo || 120}
+                onChange={(e) => setCustomFeatures({ ...customFeatures, tempo: parseFloat(e.target.value) })}
+                className="w-full accent-[#1DB954] cursor-pointer"
+              />
+            </div>
+            
+            <div className="flex flex-col gap-2 sm:col-span-2 mt-2">
+               <label className="text-white/70 text-sm">Target Genre (Optional)</label>
+               <select 
+                 value={selectedGenre}
+                 onChange={(e) => setSelectedGenre(e.target.value)}
+                 className="bg-black/40 border border-white/20 text-white text-sm rounded-xl focus:ring-[#1DB954] focus:border-[#1DB954] block w-full p-3 transition-colors"
+               >
+                 <option value="">Any Genre</option>
+                 {availableGenres.map(g => (
+                   <option key={g.genre_name} value={g.genre_name}>{g.genre_name}</option>
+                 ))}
+               </select>
+            </div>
           </div>
 
           <button 
@@ -181,6 +243,34 @@ export default function Recommendations() {
           </div>
         </div>
       )}
+
+      {/* Top Tracks by Genre Section */}
+      <div className="mt-24 max-w-7xl mx-auto">
+        <h2 className="text-3xl font-extrabold tracking-tight text-center mb-12">Top Tracks by Genre</h2>
+        {loadingTop ? (
+          <div className="flex justify-center"><Loader size="lg" /></div>
+        ) : topTracksByGenre.length > 0 ? (
+          <div className="flex flex-col gap-12">
+            {topTracksByGenre.map((group) => (
+              <div key={group.genre} className="bg-white/5 border border-white/10 p-8 rounded-3xl">
+                <h3 className="text-2xl font-bold text-[#1DB954] mb-6 capitalize">{group.genre}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  {group.tracks.map((track) => (
+                    <TrackCard 
+                      key={track.track_id} 
+                      track={track} 
+                      onSelect={handleSelectTrack}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-white/50">No top tracks available.</p>
+        )}
+      </div>
+
     </PageWrapper>
   );
 }
