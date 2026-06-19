@@ -4,10 +4,11 @@ from sqlalchemy.sql import text
 import logging
 
 from app.database.session import engine
-from app.api import dashboard, genres, tracks, predictions, recommendations, auth, analytics
+from app.api import dashboard, genres, tracks, predictions, recommendations, auth, analytics, admin
+from app.core.logging_config import setup_logging
+from app.middleware.request_logger import RequestLoggerMiddleware
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = setup_logging()
 
 app = FastAPI(
     title="Spotify Analytics API v1.0",
@@ -23,6 +24,7 @@ origins = [
     "https://spotify-analytics-platform.vercel.app"
 ]
 
+app.add_middleware(RequestLoggerMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -39,6 +41,7 @@ app.include_router(predictions.router, prefix="/api/predict", tags=["Predictions
 app.include_router(recommendations.router, prefix="/api/recommendations", tags=["Recommendations"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
+app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
 @app.on_event("startup")
 def startup_event():

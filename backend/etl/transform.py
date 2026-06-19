@@ -1,4 +1,7 @@
 import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
 
 def transform_data(df: pd.DataFrame) -> pd.DataFrame:
     # Step A - Remove duplicates
@@ -72,5 +75,6 @@ def transform_data(df: pd.DataFrame) -> pd.DataFrame:
             if not df[col].between(-0.01, 1.01).all(): # tiny float tolerance
                 raise ValueError(f"{col} not between 0 and 1")
                 
+    logger.info(f"Rows Transformed: {len(df)}")
     print(f"Data transformation complete. Survived rows: {len(df)}")
     return df

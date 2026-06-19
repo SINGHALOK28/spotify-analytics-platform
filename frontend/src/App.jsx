@@ -10,6 +10,7 @@ import Predictor from './pages/Predictor';
 import Explorer from './pages/Explorer';
 import Recommendations from './pages/Recommendations';
 import Login from './pages/Login';
+import Monitoring from './pages/Monitoring';
 
 function App() {
   useEffect(() => {
@@ -32,6 +33,9 @@ function App() {
             } />
             <Route path="/recommend" element={
               <ProtectedRoute><Recommendations /></ProtectedRoute>
+            } />
+            <Route path="/admin/monitoring" element={
+              <ProtectedRoute><Monitoring /></ProtectedRoute>
             } />
             
             {/* Catch-all route to prevent blank pages */}

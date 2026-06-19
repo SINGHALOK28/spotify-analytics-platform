@@ -13,6 +13,7 @@ export default function Navbar() {
     { name: 'Explorer', path: '/explore' },
     { name: 'Predictor', path: '/predict' },
     { name: 'Recommendations', path: '/recommend' },
+    { name: 'Monitoring', path: '/admin/monitoring' },
   ];
 
   const getNavLinkClass = ({ isActive }) => {

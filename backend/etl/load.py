@@ -1,4 +1,7 @@
 import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app.database.session import SessionLocal
@@ -6,6 +9,7 @@ from app.models.artist import Artist
 from app.models.genre import Genre
 from app.models.track import Track
 from app.models.etl_log import ETLLog
+from app.services.monitoring_service import MonitoringService
 from sqlalchemy.dialects.postgresql import insert
 
 def load_data(df: pd.DataFrame, start_time: datetime, row_count_extracted: int):
@@ -69,6 +73,7 @@ def load_data(df: pd.DataFrame, start_time: datetime, row_count_extracted: int):
                 print(f"Loaded {records_loaded} tracks...")
                 
     except Exception as e:
+        logger.error(f"ETL Failure: {e}")
         db.rollback()
         status = "failed"
         error_msg = str(e)
@@ -88,4 +93,9 @@ def load_data(df: pd.DataFrame, start_time: datetime, row_count_extracted: int):
         db.commit()
         db.close()
         
+        if status == "success":
+            logger.info("ETL Success")
+            MonitoringService.increment_metric(db, "etl_runs")
+        
+    logger.info(f"Rows Loaded: {records_loaded}")
     return records_loaded
