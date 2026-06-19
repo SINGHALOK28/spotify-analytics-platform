@@ -74,7 +74,11 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Verify docker-compose syntax
-      run: docker compose config -q
+      run: |
+        touch .env
+        touch backend/.env
+        touch frontend/.env
+        docker compose config -q
       
     - name: Build backend Docker image
       run: docker build -t spotify-analytics-backend ./backend
