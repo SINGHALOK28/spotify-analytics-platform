@@ -16,19 +16,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS configuration
-origins = [
-    "http://localhost:3000",
-    "http://localhost:4173",
-    "http://localhost:5173",
-    "https://spotify-analytics-platform.vercel.app"
-]
-
 app.add_middleware(RequestLoggerMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
