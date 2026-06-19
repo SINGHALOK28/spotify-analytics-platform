@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Spotify Analytics API",
+    title="Spotify Analytics API v1.0",
     description="API for the Spotify Analytics Platform with ML Predictions",
     version="1.0.0"
 )
