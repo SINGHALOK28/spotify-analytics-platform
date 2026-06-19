@@ -8,12 +8,18 @@ import KPICard from '../components/ui/KPICard';
 export default function Landing() {
   const [stats, setStats] = useState({ total_tracks: 0, total_artists: 0, total_genres: 0 });
   const [loading, setLoading] = useState(true);
+  const [longLoading, setLongLoading] = useState(false);
 
   useEffect(() => {
+    const timer = setTimeout(() => setLongLoading(true), 3000);
     getDashboard()
       .then(res => setStats(res.data))
       .catch(err => console.error("Error fetching stats:", err))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        clearTimeout(timer);
+        setLoading(false);
+        setLongLoading(false);
+      });
   }, []);
 
   const headingWords = "Spotify Analytics Dashboard".split(" ");
@@ -92,6 +98,19 @@ export default function Landing() {
 
       {/* Live Stats Section */}
       <section className="py-20 px-6 max-w-6xl mx-auto relative z-10">
+        {longLoading && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            className="mb-8 text-center bg-[#1DB954]/10 border border-[#1DB954]/30 text-[#1DB954] px-6 py-4 rounded-xl max-w-2xl mx-auto backdrop-blur-sm"
+          >
+            <p className="font-medium text-lg flex items-center justify-center gap-2">
+              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#1DB954]"></span>
+              Waking up the server... this may take 30-60 seconds on first load.
+            </p>
+            <p className="text-sm text-white/70 mt-1">Our free-tier backend is spinning up. Thanks for your patience!</p>
+          </motion.div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <KPICard title="Total Tracks" value={stats.total_tracks} icon={Music} loading={loading} />
           <KPICard title="Total Artists" value={stats.total_artists} icon={Music} color="text-blue-500" loading={loading} />

@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import api from './hooks/useAPI';
 import Navbar from './components/layout/Navbar';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import Landing from './pages/Landing';
@@ -10,6 +12,11 @@ import Recommendations from './pages/Recommendations';
 import Login from './pages/Login';
 
 function App() {
+  useEffect(() => {
+    // Ping backend to wake up Render free tier
+    api.get('/').catch(() => {});
+  }, []);
+
   return (
     <BrowserRouter>
       <AuthProvider>
