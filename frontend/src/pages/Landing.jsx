@@ -16,7 +16,7 @@ export default function Landing() {
       .finally(() => setLoading(false));
   }, []);
 
-  const headingWords = "Spotify Analytics Platform".split(" ");
+  const headingWords = "Spotify Analytics Dashboard".split(" ");
 
   const containerVariants = {
     hidden: { opacity: 0 },
